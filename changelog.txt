@@ -1,0 +1,48 @@
+4.202:
+ - Temporarily disabled "Sell soulbound items" until the bug has been fixed
+
+4.201:
+ - Updated TOC
+
+4.132:
+ - Nothing changed, really :)
+
+4.13:
+ - Updated TOC
+
+4.12:
+ - Updated TOC
+
+4.11:
+- Added ruRU localization, thanks to H!chig0 and StingerSoft
+- Preliminary support of a new option to autosell non-optimal soulbound armor (cloth for rogue/druid, cloth+leather for hunter/shaman, cloth+leather+mail for warrior/paladin/dk)
+
+4.1:
+- Fixed more localization issues with soulbound items for some languages (frFR, possibly deDE)
+- Removed libBabble-Class dependency
+- Moved from Ace2 to Ace3
+- Improved GUI configuration a little bit
+- You might loose your 'per char' exceptions list when upgrading to this version
+
+4.03:
+- Fixed localization strings usage
+- Fixed issue where the addon is trying to sell soulbound items that are class restricted but which you can use!
+- No longer trying to sell your relics if you are a druid/dk/shaman/paladin
+
+4.02:
+- Removed german localization, since it's not really done, and causes Ace Errors
+- Replaced old gold-model with simple gold texture, since the model has been removed (well it looks like)
+- Removed "cataclysm" tag in addon's title
+
+4.01:
+- Updated toc file to support newest game version.
+
+Old version:
+- Added german localisation (not finished yet)
+- Updated Ace2 library to version r1094 (We will go later to Ace3 library, so make it more compatible and less memory need)
+- Updated GratuityLib to r66041.1
+- Updated LibBabble-Inventory to 3.0-release19
+- Updated LibBabble-Class to 3.0-release15
+- Updated LibStub to 1.0 Release (Will be completly removed, if Ace3 is out of beta)
+- Updated Waterfall-1.0 to 3.0 release
+- Updated proficiencies.lua to support deadknight

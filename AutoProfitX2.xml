@@ -1,0 +1,151 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/ ..\FrameXML\UI.xsd">
+	
+	<Script file="AutoProfitX2.lua"/>
+
+	<Button name="AutoProfitX2_SellButton" parent="MerchantFrame" frameStrata="HIGH">
+		<Size>
+			<AbsDimension x="33" y="33" />
+		</Size>
+		<Anchors>
+			<Anchor point="TOPLEFT" relativeTo="MerchantFrame">
+				<Offset>
+					<AbsDimension x="65" y="-25"/>
+				</Offset>
+			</Anchor>
+		</Anchors>
+		<Scripts>
+			<OnEnter>
+				AutoProfitX2:OnEnterButton(self)
+			</OnEnter>
+			<OnLeave>
+				AutoProfitX2:OnLeaveButton(self)
+			</OnLeave>
+			<OnClick>
+				AutoProfitX2:OnClickButton(self,button)
+			</OnClick>
+			<OnLoad>
+				self:RegisterForDrag("RightButton")
+				self.dragging = false
+			</OnLoad>
+			<OnShow>
+				AutoProfitX2:OnShowButton(self)
+			</OnShow>
+			<OnHide>
+				AutoProfitX2:ButtonStopSpin(self)
+			</OnHide>
+			<OnDragStart>
+				self.dragging = true;
+			</OnDragStart> 
+			<OnDragStop>
+				self.dragging = false;
+			</OnDragStop>
+			<OnUpdate>
+				if self.dragging then
+					AutoProfitX2:DragButton(self)
+				end
+			</OnUpdate>
+		</Scripts>
+		<NormalTexture file="Interface\Buttons\UI-Quickslot2">
+			<Anchors>
+				<Anchor point="TOPLEFT">
+					<Offset>
+						<AbsDimension x="-14" y="14"/>
+					</Offset>
+				</Anchor>
+				<Anchor point="BOTTOMRIGHT">
+					<Offset>
+						<AbsDimension x="15" y="-15"/>
+					</Offset>
+				</Anchor>
+			</Anchors>
+		</NormalTexture>
+		<PushedTexture file="Interface\Buttons\UI-Quickslot-Depress">
+			<Anchors>
+				<Anchor point="TOPLEFT">
+					<Offset>
+						<AbsDimension x="0" y="0"/>
+					</Offset>
+				</Anchor>
+				<Anchor point="BOTTOMRIGHT">
+					<Offset>
+						<AbsDimension x="0" y="0"/>
+					</Offset>
+				</Anchor>
+			</Anchors>
+		</PushedTexture>
+		<HighlightTexture file="Interface\Buttons\ButtonHilight-Square" alphaMode="ADD">
+			<Anchors>
+				<Anchor point="TOPLEFT">
+					<Offset>
+						<AbsDimension x="0" y="0"/>
+					</Offset>
+				</Anchor>
+				<Anchor point="BOTTOMRIGHT">
+					<Offset>
+						<AbsDimension x="0" y="0"/>
+					</Offset>
+				</Anchor>
+			</Anchors>
+		</HighlightTexture>
+		<Frames>
+			<!--<PlayerModel name="$parent_TreasureModel">
+				<Anchors>
+					<Anchor point="TOPRIGHT">
+						<Offset>
+							<AbsDimension x="-1" y="-1"/>
+						</Offset>
+					</Anchor>
+					<Anchor point="BOTTOMLEFT">
+						<Offset>
+							<AbsDimension x="2" y="2"/>
+						</Offset>
+					</Anchor>
+				</Anchors>
+				<Scripts>
+					<OnLoad>
+						self.rotRate = 0
+					</OnLoad>
+					<OnUpdate>
+						if self.rotRate > 0 then
+							self.rotation = self.rotation + (elapsed * self.rotRate)
+						end
+						self:SetRotation(self.rotation)
+					</OnUpdate>
+					<OnShow>
+						self:SetModel("World/Generic/PassiveDoodads/TreasurePiles/GoldPileLarge01.m2")
+						self.rotation = 0
+					</OnShow>
+					<OnHide>
+						self.rotation = 0
+					</OnHide>
+				</Scripts>
+			</PlayerModel>-->
+		</Frames>
+		<Layers>
+			<Layer level="OVERLAY">
+				<Texture name="$parent_TreasureModel" file="Interface\Buttons\UI-GroupLoot-Coin-Up">
+					<Anchors>
+						<Anchor point="TOP">
+							<Offset>
+								<AbsDimension x="0" y="-5"/>
+							</Offset>
+						</Anchor>
+						<Anchor point="BOTTOM">
+							<Offset>
+								<AbsDimension x="0" y="-5"/>
+							</Offset>
+						</Anchor>
+					</Anchors>
+				</Texture>
+			</Layer>
+		</Layers>
+	</Button>
+
+	<GameTooltip name="AutoProfitX2_Tooltip" inherits="GameTooltipTemplate" hidden="true">
+		<Scripts>
+			<OnLoad>
+				self:SetScript("OnTooltipAddMoney", AutoProfitX2.AddTooltipMoney)
+			</OnLoad>
+		</Scripts>
+	</GameTooltip>
+</Ui>

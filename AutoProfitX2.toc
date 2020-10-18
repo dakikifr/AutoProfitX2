@@ -1,0 +1,22 @@
+## Title: AutoProfitX2
+## Notes-German: Verkauft automatisch graue, sowie ausgewählte weiße Gegenstände beim Händler.
+## Notes-English: Automatically sells low quality gray items and selected white items to the vendor.
+## Notes-French: Vends automatiquement les objets de qualité grise et ceux d'une liste d'exception aux vendeurs.
+## Notes-zhTW: ??NPC?????/?????????
+## Notes-zhCN: ??NPC?????/???????????????
+## Interface: 90000
+## Version: 9.001
+## Author: Kiki (AutoProfitX2 since WoW 4.0)
+## X-Credits: Uniquesone (AutoProfitX2) , Bigzero (AutoProfitX2) , Trouncer (AutoProfit, original author)
+## SavedVariables: AutoProfitX2DB, AutoProfitX2_ExceptionlistVersion, AutoProfitX2_Settings
+## OptionalDeps: Ace3, LibGratuity-3.0, LibBabble-Inventory-3.0, CallbackHandler-1.0
+## X-Embeds: Ace3, LibGratuity-3.0, LibBabble-Inventory-3.0, CallbackHandler-1.0
+## X-Category: Inventory
+## X-Notes: Based on Trouncer's AutoProfit v4.00 and Bigzero's AutoProfitX2 and Uniquesone's AutoProfitX2.
+
+embeds.xml
+
+locales\locales.xml
+
+proficiencies.lua
+AutoProfitX2.xml
