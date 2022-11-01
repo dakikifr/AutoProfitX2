@@ -273,7 +273,7 @@ function AutoProfitX2:OnInitialize()
 	AceConfig:RegisterOptionsTable("AutoProfitX2 Configuration",gui_options.args.addon);
 	AceConfig:RegisterOptionsTable("AutoProfitX2 Exceptions",gui_options.args.exceptionList);
 	self.blizOptionsRef = AceConfigDialog:AddToBlizOptions("AutoProfitX2 Configuration","AutoProfitX2");
-	AceConfigDialog:AddToBlizOptions("AutoProfitX2 Exceptions","Exceptions List","AutoProfitX2 Configuration");
+	--AceConfigDialog:AddToBlizOptions("AutoProfitX2 Exceptions","Exceptions List","AutoProfitX2 Configuration");
 
 	if level < 40 then
 		infArmorProf = AutoProfitX2_InfArmorProficiencies_Sub40[apx_CLASS] or {}
