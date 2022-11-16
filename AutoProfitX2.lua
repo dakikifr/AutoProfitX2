@@ -472,9 +472,9 @@ function AutoProfitX2:SellJunk()
 	
 	if ( MerchantFrame:IsVisible() and MerchantFrame.selectedTab == 1 ) then
 		for bag = 0, 4 do
-			for slot = 1, GetContainerNumSlots(bag) do
+			for slot = 1, C_Container.GetContainerNumSlots(bag) do
 				--if slot not empty and item is junk
-				link = GetContainerItemLink(bag, slot)
+				link = C_Container.GetContainerItemLink(bag, slot)
 				if link then
 					local junk, itemSellPrice = self:IsJunk(link,bag,slot)
 					if junk then
@@ -484,7 +484,7 @@ function AutoProfitX2:SellJunk()
 							end
 						else
 							--sell item
-							UseContainerItem(bag, slot)
+							C_Container.UseContainerItem(bag, slot)
 							--if sale reporting is turned on (not silent), display sale message
 							if not charSettings.silent then
 								self:Print(L["Sold LINK."](link))
@@ -560,15 +560,16 @@ function AutoProfitX2:GetProfit()
 	totalProfit = 0
 	if MerchantFrame:IsVisible() then
 		local bagSlots, link
-		for bag = 0,4 do
-			bagSlots = GetContainerNumSlots(bag)
+		for bag = 0,5 do
+			bagSlots = C_Container.GetContainerNumSlots(bag)
 			if bagSlots > 0 then
 				for slot = 1, bagSlots do
-					link = GetContainerItemLink(bag, slot)
+					link = C_Container.GetContainerItemLink(bag, slot)
 					if link then
 						local junk, itemSellPrice = AutoProfitX2:IsJunk(link,bag,slot)
 						if junk and itemSellPrice ~= 0 then
-							AutoProfitX2_Tooltip:SetBagItem(bag, slot)
+							local itemInfo = C_Container.GetContainerItemInfo(bag,slot)
+							totalProfit = totalProfit + itemInfo.stackCount * itemSellPrice
 						end
 					end
 				end
@@ -694,12 +695,6 @@ function AutoProfitX2:SetButtonPosition(buttonXpos,buttonYpos)
 	end
 	
 	AutoProfitX2_SellButton:SetPoint("TOPRIGHT","MerchantFrame","TOPRIGHT",charSettings.buttonXpos,charSettings.buttonYpos)
-end
-
-function AutoProfitX2.AddTooltipMoney(self,amount,maxAmount)
-	if amount then
-		totalProfit = totalProfit + amount
-	end
 end
 
 function AutoProfitX2:ButtonSpin(spinRate)
