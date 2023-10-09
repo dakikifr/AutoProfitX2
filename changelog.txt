@@ -1,3 +1,6 @@
+v10.04:
+- updated retail toc for v10.1.7
+
 v10.03:
 - updated retail toc and add toc for wrath-classic.
 
