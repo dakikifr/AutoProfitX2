@@ -1,3 +1,6 @@
+v10.05:
+- updated wrath-classic toc for v3.4.3
+
 v10.04:
 - updated retail toc for v10.1.7
 
