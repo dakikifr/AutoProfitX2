@@ -1,3 +1,6 @@
+v10.07:
+- updated retail toc for v10.2.5
+
 v10.06:
 - updated retail toc for v10.2.0
 

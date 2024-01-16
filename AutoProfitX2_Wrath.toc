@@ -8,7 +8,7 @@
 ## Notes-French: Vends automatiquement les objets de qualité grise et ceux d'une liste d'exception aux vendeurs.
 ## Notes-zhTW: ??NPC?????/?????????
 ## Notes-zhCN: ??NPC?????/???????????????
-## Version: 10.006
+## Version: 10.007
 ## Author: Kiki (AutoProfitX2 since WoW 4.0)
 ## X-Credits: Uniquesone (AutoProfitX2) , Bigzero (AutoProfitX2) , Trouncer (AutoProfit, original author)
 ## SavedVariables: AutoProfitX2DB, AutoProfitX2_ExceptionlistVersion, AutoProfitX2_Settings
