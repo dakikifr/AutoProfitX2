@@ -1,3 +1,7 @@
+v10.09
+- add toc for classic-Era v1.15.2
+- update toc(s) version info and changelog
+
 v10.08:
 - updated retail toc for v10.2.6
 
