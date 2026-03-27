@@ -5,8 +5,10 @@ local name = UnitName("player")
 local realm = GetRealmName()
 local level = UnitLevel("player")
 local totalProfit = 0
+-- WoW 12.0+ secret value safety
+local issecretvalue = issecretvalue or function() return false end
 --make proficiency table local (defined in proficiencies.lua)
-local _,apx_CLASS = UnitClass("player")
+local _, apx_CLASS = UnitClass("player")
 local apx_class = LOCALIZED_CLASS_NAMES_MALE[apx_CLASS]
 local prof = AutoProfitX2_Proficiencies[apx_CLASS] or {}
 local infArmorProf = {}
@@ -16,7 +18,7 @@ local buttonY = -37
 local buttonX = -41
 local DEFAULT_SPIN_RATE = 0.6
 
-AutoProfitX2 = LibStub("AceAddon-3.0"):NewAddon("AutoProfitX2","AceConsole-3.0","AceEvent-3.0")
+AutoProfitX2 = LibStub("AceAddon-3.0"):NewAddon("AutoProfitX2", "AceConsole-3.0", "AceEvent-3.0")
 
 local AceConfig = LibStub("AceConfig-3.0");
 local AceConfigDialog = LibStub("AceConfigDialog-3.0");
@@ -28,7 +30,7 @@ local strmatch = string.match
 
 --some strings commonly used in addon
 local linkMatch = "|c%x+|Hitem:[%-%d:]*|h%[.-%]|h|r"
-local classMatch = strformat(ITEM_CLASSES_ALLOWED,"([%w, ]*)")
+local classMatch = strformat(ITEM_CLASSES_ALLOWED, "([%w, ]*)")
 
 --[[
 
@@ -53,21 +55,21 @@ local function tdeepcopy(from)
 end
 
 --returns a formatted money string
-local function coppertogold(copper,showGold)
+local function coppertogold(copper, showGold)
 	local strValue = ""
 	local val
-	val = math.floor(copper/COPPER_PER_GOLD)
-	copper = mod(copper,COPPER_PER_GOLD)
+	val = math.floor(copper / COPPER_PER_GOLD)
+	copper = mod(copper, COPPER_PER_GOLD)
 	if val > 0 or showGold then
 		strValue = val .. "g "
 	end
-	
-	val = math.floor(copper/COPPER_PER_SILVER)
-	copper = mod(copper,COPPER_PER_SILVER)
+
+	val = math.floor(copper / COPPER_PER_SILVER)
+	copper = mod(copper, COPPER_PER_SILVER)
 	if val > 0 or strValue ~= "" then
 		strValue = strValue .. val .. "s "
 	end
-	
+
 	return strValue .. copper .. "c"
 end
 
@@ -97,16 +99,16 @@ function AutoProfitX2:OnInitialize()
 			}
 		},
 	};
-	
+
 	--register database
-	self.db = LibStub("AceDB-3.0"):New("AutoProfitX2DB",defaults)
-	
+	self.db = LibStub("AceDB-3.0"):New("AutoProfitX2DB", defaults)
+
 	--initialize charSettings variable
 	charSettings = self.db.char
 
 	--initialize eList variable
 	eList = self.db.global[realm][name].exceptionList
-			
+
 	--register chat commands
 	local chat_options = {
 		name = "AutoProfitX2",
@@ -151,8 +153,8 @@ function AutoProfitX2:OnInitialize()
 			}
 		}
 	}
-	AceConfig:RegisterOptionsTable("AutoProfitX2",chat_options,{"AutoProfitX2","apx"});
-	
+	AceConfig:RegisterOptionsTable("AutoProfitX2", chat_options, { "AutoProfitX2", "apx" });
+
 	--set up options panel
 	local gui_options = {
 		type = "group",
@@ -166,7 +168,7 @@ function AutoProfitX2:OnInitialize()
 						name = L["Auto Sell"],
 						type = "toggle",
 						desc = L["Automatically sell junk items when opening vendor window."],
-						get = function () return charSettings.autoSell end,
+						get = function() return charSettings.autoSell end,
 						set = "ToggleAutoSell",
 						handler = self,
 						order = 10
@@ -175,24 +177,24 @@ function AutoProfitX2:OnInitialize()
 						name = L["Sales Reports"],
 						type = "toggle",
 						desc = L["Print items being sold in chat frame."],
-						get = function () return not charSettings.silent end,
-						set = function (info,v) charSettings.silent = not v end,
+						get = function() return not charSettings.silent end,
+						set = function(info, v) charSettings.silent = not v end,
 						order = 20
 					},
 					profit = {
 						name = L["Show Profit"],
 						type = "toggle",
 						desc = L["Print total profit after sale."],
-						get = function () return charSettings.showTotal end,
-						set = function (info,v) charSettings.showTotal = v end,
+						get = function() return charSettings.showTotal end,
+						set = function(info, v) charSettings.showTotal = v end,
 						order = 25
 					},
 					sellSoulbound = {
 						name = L["Sell Soulbound"],
 						type = "toggle",
 						desc = L["Sell unusable soulbound items."],
-						get = function () return charSettings.checkSoulbound end,
-						set = function (info,v) charSettings.checkSoulbound = v end,
+						get = function() return charSettings.checkSoulbound end,
+						set = function(info, v) charSettings.checkSoulbound = v end,
 						order = 30
 					},
 					--[[sellInfArmor = {
@@ -229,7 +231,7 @@ function AutoProfitX2:OnInitialize()
 						name = L["Reset Button Pos"],
 						type = "execute",
 						desc = L["Reset APX button position on the vendor screen to the top right corner."],
-						func = function () self:SetButtonPosition(buttonX,buttonY) end,
+						func = function() self:SetButtonPosition(buttonX, buttonY) end,
 						order = 50
 					}
 				}
@@ -270,9 +272,9 @@ function AutoProfitX2:OnInitialize()
 			}
 		}
 	}
-	AceConfig:RegisterOptionsTable("AutoProfitX2 Configuration",gui_options.args.addon);
-	AceConfig:RegisterOptionsTable("AutoProfitX2 Exceptions",gui_options.args.exceptionList);
-	self.blizOptionsRef = AceConfigDialog:AddToBlizOptions("AutoProfitX2 Configuration","AutoProfitX2");
+	AceConfig:RegisterOptionsTable("AutoProfitX2 Configuration", gui_options.args.addon);
+	AceConfig:RegisterOptionsTable("AutoProfitX2 Exceptions", gui_options.args.exceptionList);
+	self.blizOptionsRef = AceConfigDialog:AddToBlizOptions("AutoProfitX2 Configuration", "AutoProfitX2");
 	--AceConfigDialog:AddToBlizOptions("AutoProfitX2 Exceptions","Exceptions List","AutoProfitX2 Configuration");
 
 	if level < 40 then
@@ -284,11 +286,11 @@ end
 
 function AutoProfitX2:OnEnable()
 	--register events
-	self:RegisterEvent("MERCHANT_SHOW","OnMerchantShow")
+	self:RegisterEvent("MERCHANT_SHOW", "OnMerchantShow")
 end
 
 --returns a table with all your characters that have used AutoProfitX2
-function AutoProfitX2:GetCharList(info,value)
+function AutoProfitX2:GetCharList(info, value)
 	local tbl = {}
 	for rlm, charList in pairs(self.db.global) do
 		for char in pairs(charList) do
@@ -298,62 +300,62 @@ function AutoProfitX2:GetCharList(info,value)
 			end
 		end
 	end
-	
+
 	return tbl
 end
 
 --add global exceptions
-function AutoProfitX2:AddGlobal(info,exceptions)
+function AutoProfitX2:AddGlobal(info, exceptions)
 	local itemID
-	for link in strgmatch(exceptions,linkMatch) do	
+	for link in strgmatch(exceptions, linkMatch) do
 		itemID = self:GetID(link)
 		if itemID then
 			--add it to all exception lists
-			for realm,charList in pairs(self.db.global) do
-				for char,charSettings in pairs(charList) do
+			for realm, charList in pairs(self.db.global) do
+				for char, charSettings in pairs(charList) do
 					charSettings.exceptionList[itemID] = true
 				end
 			end
-			
+
 			self:Print(L["Added LINK to exception list for all characters."](link))
 		else
 			self:Print(L["Invalid item link provided."])
 		end
 	end
-		
+
 	if AutoProfitX2_SellButton:IsVisible() then
 		self:OnShowButton(AutoProfitX_SellButton)
 	end
 end
 
 --rem exceptions globaly
-function AutoProfitX2:RemGlobal(infos,exceptions)
+function AutoProfitX2:RemGlobal(infos, exceptions)
 	local itemID
-	for link in strgmatch(exceptions,linkMatch) do
+	for link in strgmatch(exceptions, linkMatch) do
 		itemID = self:GetID(link)
 		if itemID then
-			for realm,charList in pairs(self.db.global) do
-				for char,charSettings in pairs(charList) do
+			for realm, charList in pairs(self.db.global) do
+				for char, charSettings in pairs(charList) do
 					charSettings.exceptionList[itemID] = nil
 				end
 			end
-			
+
 			self:Print(L["Removed LINK from all exception lists."](link))
 		else
 			self:Print(L["Invalid item link provided."])
 		end
 	end
-		
+
 	if AutoProfitX2_SellButton:IsVisible() then
 		self:OnShowButton(AutoProfitX_SellButton)
 	end
 end
 
 --add/remve local exceptions
-function AutoProfitX2:AddRemLocal(info,exceptions)
+function AutoProfitX2:AddRemLocal(info, exceptions)
 	local itemID
-	
-	for link in strgmatch(exceptions,linkMatch) do
+
+	for link in strgmatch(exceptions, linkMatch) do
 		itemID = self:GetID(link)
 		if itemID then
 			if eList[itemID] then
@@ -367,7 +369,7 @@ function AutoProfitX2:AddRemLocal(info,exceptions)
 			self:Print(L["Invalid item link provided."])
 		end
 	end
-		
+
 	if AutoProfitX2_SellButton:IsVisible() then
 		self:OnShowButton(AutoProfitX_SellButton)
 	end
@@ -389,7 +391,7 @@ function AutoProfitX2:ListExceptions()
 			self:Print(link)
 		end
 	end
-	
+
 	if dispHeader then
 		self:Print(L["Your exception list is empty."])
 	end
@@ -399,7 +401,7 @@ end
 function AutoProfitX2:ToggleAutoSell()
 	charSettings.autoSell = not charSettings.autoSell
 	if charSettings.autoSell then
-		self:RegisterEvent("MERCHANT_SHOW","OnMerchantShow")
+		self:RegisterEvent("MERCHANT_SHOW", "OnMerchantShow")
 		AutoProfitX2_SellButton:Hide()
 	else
 		self:UnregisterEvent("MERCHANT_SHOW")
@@ -409,22 +411,22 @@ end
 
 --purge exception list
 function AutoProfitX2:PurgeExceptionList()
-	eList = { }
+	eList = {}
 	self.db.global[realm][name].exceptionList = eList
 	self:Print(L["Deleted all exceptions."])
 end
 
 --import exception list
 --fromChar must be a string with name@realm
-function AutoProfitX2:ImportExceptionList(info,fromChar)
-	local iName, iRealm = strsplit("@",fromChar)
+function AutoProfitX2:ImportExceptionList(info, fromChar)
+	local iName, iRealm = strsplit("@", fromChar)
 	if iName then
 		if self.db.global[iRealm] and self.db.global[iRealm][iName] and self.db.global[iRealm][iName].exceptionList then
 			eList = tdeepcopy(self.db.global[iRealm][iName].exceptionList)
 			self.db.global[realm][name].exceptionList = eList
-			self:Print(L["Exception list imported from NAME on REALM."](iName,iRealm))
+			self:Print(L["Exception list imported from NAME on REALM."](iName, iRealm))
 		else
-			self:Print(L["Exception list could not be found for NAME on REALM."](iName,iRealm))
+			self:Print(L["Exception list could not be found for NAME on REALM."](iName, iRealm))
 		end
 		return
 	end
@@ -434,7 +436,8 @@ end
 function AutoProfitX2:OnMerchantShow()
 	if charSettings.autoSell then
 		local profit = self:GetProfit()
-		if profit > 0 then
+		local hasProfit = (not issecretvalue(profit)) and (profit > 0)
+		if hasProfit then
 			self:SellJunk()
 			if charSettings.showTotal then
 				self:Print(L["Total profits: PROFIT"](coppertogold(profit)))
@@ -442,8 +445,8 @@ function AutoProfitX2:OnMerchantShow()
 		end
 	else
 		--register BAG_UPDATE event for updating button
-		self:RegisterEvent("BAG_UPDATE","OnBagUpdate")
-		self:RegisterEvent("MERCHANT_CLOSED","OnMerchantClosed")
+		self:RegisterEvent("BAG_UPDATE", "OnBagUpdate")
+		self:RegisterEvent("MERCHANT_CLOSED", "OnMerchantClosed")
 	end
 end
 
@@ -463,20 +466,20 @@ end
 
 --returns itemID of the item when provided with an item link
 function AutoProfitX2:GetID(link)
-	return strmatch(link,"item:(%d+)")
+	return strmatch(link, "item:(%d+)")
 end
 
 --sells junk items
 function AutoProfitX2:SellJunk()
 	local link
-	
-	if ( MerchantFrame:IsVisible() and MerchantFrame.selectedTab == 1 ) then
+
+	if (MerchantFrame:IsVisible() and MerchantFrame.selectedTab == 1) then
 		for bag = 0, 4 do
 			for slot = 1, C_Container.GetContainerNumSlots(bag) do
 				--if slot not empty and item is junk
 				link = C_Container.GetContainerItemLink(bag, slot)
 				if link then
-					local junk, itemSellPrice = self:IsJunk(link,bag,slot)
+					local junk, itemSellPrice = self:IsJunk(link, bag, slot)
 					if junk then
 						if itemSellPrice == 0 then
 							if not charSettings.silent then
@@ -498,41 +501,48 @@ function AutoProfitX2:SellJunk()
 end
 
 --returns true if item is junk
-function AutoProfitX2:IsJunk(link,bag,slot)
+function AutoProfitX2:IsJunk(link, bag, slot)
 	local _, _, quality, _, _, _, _, _, _, _, itemSellPrice = GetItemInfo(link)
+	-- WoW 12.0+: itemSellPrice and quality may be secret values
+	if itemSellPrice and issecretvalue(itemSellPrice) then
+		itemSellPrice = 0
+	end
+	if quality and issecretvalue(quality) then
+		quality = 1 -- treat as non-junk when secret
+	end
 	local id = self:GetID(link)
-	
+
 	if eList[id] then
 		-- since it's in the exception list, return true if not poor
 		return quality ~= 0, itemSellPrice
- 	end
-	
+	end
+
 	-- Not in the list, return true if it's poor quality
 	if quality == 0 then
 		return true, itemSellPrice
 	end
-	
+
 	--Not poor quality, check if it's usable
 	--[[if charSettings.checkSoulbound and bag and slot and not self:IsUsable(bag,slot,link) then
 		return true, itemSellPrice
 	end]]
-	
+
 	return false, itemSellPrice
 end
 
 --returns false if a soulbound item cannot be used by player class
-function AutoProfitX2:IsUsable(bag,slot,link)
+function AutoProfitX2:IsUsable(bag, slot, link)
 	--if it's not soulbound then you can always use it
-	tooltip:SetBagItem(bag,slot)
+	tooltip:SetBagItem(bag, slot)
 	if not tooltip:Find(ITEM_SOULBOUND) then
 		return true
 	end
-	
+
 	--check if item has class requirement
 	local _, _, classes = tooltip:Find(classMatch)
 	if classes then
 		local found = false
-		classes = {strsplit(L["LIST_SEPARATOR"], classes)}
+		classes = { strsplit(L["LIST_SEPARATOR"], classes) }
 		for _, c in ipairs(classes) do
 			if apx_class == c then
 				found = true
@@ -560,16 +570,18 @@ function AutoProfitX2:GetProfit()
 	totalProfit = 0
 	if MerchantFrame:IsVisible() then
 		local bagSlots, link
-		for bag = 0,5 do
+		for bag = 0, 5 do
 			bagSlots = C_Container.GetContainerNumSlots(bag)
 			if bagSlots > 0 then
 				for slot = 1, bagSlots do
 					link = C_Container.GetContainerItemLink(bag, slot)
 					if link then
-						local junk, itemSellPrice = AutoProfitX2:IsJunk(link,bag,slot)
+						local junk, itemSellPrice = AutoProfitX2:IsJunk(link, bag, slot)
 						if junk and itemSellPrice ~= 0 then
-							local itemInfo = C_Container.GetContainerItemInfo(bag,slot)
-							totalProfit = totalProfit + itemInfo.stackCount * itemSellPrice
+							local itemInfo = C_Container.GetContainerItemInfo(bag, slot)
+							local count = itemInfo and itemInfo.stackCount or 1
+							if issecretvalue(count) then count = 1 end
+							totalProfit = totalProfit + count * itemSellPrice
 						end
 					end
 				end
@@ -594,9 +606,9 @@ function AutoProfitX2:DragButton()
 	local scale = MerchantFrame:GetEffectiveScale()
 	local cursorOffset = 1
 	--current cursor x coordinate
-    local xpos, ypos = GetCursorPosition()
-	xpos = xpos/scale
-	ypos = ypos/scale
+	local xpos, ypos = GetCursorPosition()
+	xpos = xpos / scale
+	ypos = ypos / scale
 	--merchant fame position (right border of frame)
 	local mwpos = MerchantFrame:GetRight()
 
@@ -605,7 +617,7 @@ function AutoProfitX2:DragButton()
 	end
 
 	--cursor x offset from merchant frame's right border
-    xpos = xpos - mwpos - cursorOffset
+	xpos = xpos - mwpos - cursorOffset
 
 	--if detatched, set y position
 	--otherwise check if x is in bounds
@@ -623,7 +635,7 @@ function AutoProfitX2:DragButton()
 	end
 
 	--position button
-	self:SetButtonPosition(xpos,ypos)
+	self:SetButtonPosition(xpos, ypos)
 end
 
 function AutoProfitX2:OnEnterButton(this)
@@ -634,12 +646,18 @@ function AutoProfitX2:OnEnterButton(this)
 	if charSettings.buttonSpin == "2" then
 		self:ButtonSpin()
 	end
-	if profit > 0 then
+	-- WoW 12.0+: profit might still be secret if GetItemInfo behaves unexpectedly
+	local profitIsSecret = issecretvalue(profit)
+	local hasProfit = (not profitIsSecret) and (profit > 0)
+	if hasProfit then
 		--spin button if on mouse-over and profit is selected
 		if charSettings.buttonSpin == "1" then
 			self:ButtonSpin()
 		end
-		SetTooltipMoney(GameTooltip, profit)
+		-- WoW 12.0+: Do NOT use SetTooltipMoney(GameTooltip, ...) from addon code.
+		-- It permanently taints GameTooltip's internal MoneyFrame, causing
+		-- "secret number tainted by AutoProfitX2" errors on all future item tooltips.
+		GameTooltip:AddLine(coppertogold(profit, true), 1.0, 1.0, 1.0)
 	else
 		GameTooltip:AddLine(L["You have no junk items in your inventory."], 1.0, 1.0, 1.0, 1)
 	end
@@ -655,7 +673,8 @@ end
 
 function AutoProfitX2:OnClickButton()
 	local profit = self:GetProfit()
-	if profit > 0 then
+	local profitIsSecret = issecretvalue(profit)
+	if (not profitIsSecret) and profit > 0 then
 		GameTooltip:Hide()
 		self:SellJunk()
 		if charSettings.showTotal then
@@ -672,29 +691,31 @@ function AutoProfitX2:OnShowButton(this)
 		this:Hide()
 	end
 	local profit = self:GetProfit()
-	if charSettings.buttonSpin == "3" and profit > 0 then
+	local hasProfit = (not issecretvalue(profit)) and (profit > 0)
+	if charSettings.buttonSpin == "3" and hasProfit then
 		self:ButtonSpin()
 	end
-	if profit > 0 then
+	if hasProfit then
 		AutoProfitX2_SellButton_TreasureModel:SetAlpha(1)
 	else
 		AutoProfitX2_SellButton_TreasureModel:SetAlpha(0.2)
 	end
 end
 
-function AutoProfitX2:SetButtonPosition(buttonXpos,buttonYpos)
+function AutoProfitX2:SetButtonPosition(buttonXpos, buttonYpos)
 	buttonXpos = tonumber(buttonXpos)
 	buttonYpos = tonumber(buttonYpos)
-	
+
 	if buttonXpos then
 		charSettings.buttonXpos = buttonXpos
 	end
-	
+
 	if buttonYpos then
 		charSettings.buttonYpos = buttonYpos
 	end
-	
-	AutoProfitX2_SellButton:SetPoint("TOPRIGHT","MerchantFrame","TOPRIGHT",charSettings.buttonXpos,charSettings.buttonYpos)
+
+	AutoProfitX2_SellButton:SetPoint("TOPRIGHT", "MerchantFrame", "TOPRIGHT", charSettings.buttonXpos,
+		charSettings.buttonYpos)
 end
 
 function AutoProfitX2:ButtonSpin(spinRate)
@@ -702,7 +723,7 @@ function AutoProfitX2:ButtonSpin(spinRate)
 	if not spinRate then
 		spinRate = DEFAULT_SPIN_RATE
 	end
-	
+
 	AutoProfitX2_SellButton_TreasureModel.rotRate = spinRate
 end
 
@@ -723,9 +744,9 @@ function AutoProfitX2:UpdateExceptionLists()
 				for itemID in pairs(settings.ExceptionList) do
 					if tonumber(itemID) then
 						if not self.db.global[realm] then
-							self.db.global[realm] = {[char] = { exceptionList = {[itemID] = true}}}
+							self.db.global[realm] = { [char] = { exceptionList = { [itemID] = true } } }
 						elseif not self.db.global[realm][char] then
-							self.db.global[realm][char] = { exceptionList = {[itemID] = true}}
+							self.db.global[realm][char] = { exceptionList = { [itemID] = true } }
 						else
 							self.db.global[realm][char].exceptionList[itemID] = true
 						end
@@ -737,6 +758,6 @@ function AutoProfitX2:UpdateExceptionLists()
 	--get rid of old variables
 	AutoProfitX2_Settings = nil
 	AutoProfitX2_ExceptionlistVersion = nil
-	
+
 	self:Print(L["Exceptions updated."])
 end
