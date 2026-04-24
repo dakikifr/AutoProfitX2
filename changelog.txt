@@ -1,3 +1,14 @@
+v12.3
+- Fix item link parsing for WoW 12.0+ (new |cnIQx color format)
+- Add batch selling: items are sold in groups of 10 with 250ms delay to avoid server throttle
+- Add "Force Sell" list: force-sell items regardless of quality (e.g. non-gray items)
+- Ignore list now truly ignores items (even gray ones)
+- New graphical options panel (/apx options) replacing old Blizzard interface panel
+  - General tab: Auto Sell, Sales Reports, Show Profit, Reset Button
+  - Ignore List tab: view, add (drag & drop or type name/link), remove items
+  - Force Sell tab: same interface for forced sell items
+- Removed old slash commands (add/rem/me/list) - use the GUI instead
+
 v10.09
 - add toc for classic-Era v1.15.2
 - update toc(s) version info and changelog

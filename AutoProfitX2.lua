@@ -20,17 +20,20 @@ local DEFAULT_SPIN_RATE = 0.6
 
 AutoProfitX2 = LibStub("AceAddon-3.0"):NewAddon("AutoProfitX2", "AceConsole-3.0", "AceEvent-3.0")
 
-local AceConfig = LibStub("AceConfig-3.0");
-local AceConfigDialog = LibStub("AceConfigDialog-3.0");
-
 -- Optims
 local strformat = string.format
 local strgmatch = string.gmatch
 local strmatch = string.match
 
 --some strings commonly used in addon
-local linkMatch = "|c%x+|Hitem:[%-%d:]*|h%[.-%]|h|r"
+-- WoW 12.0+: item links now use |cnIQx instead of |cXXXXXXXX
+local linkMatch = "|c[^|]+|Hitem.-|h%[.-%]|h|r"
 local classMatch = strformat(ITEM_CLASSES_ALLOWED, "([%w, ]*)")
+
+-- Batch selling state
+local sellQueue = {}
+local sellBatchSize = 10
+local sellBatchDelay = 0.25 -- seconds between batches
 
 --[[
 
@@ -94,7 +97,8 @@ function AutoProfitX2:OnInitialize()
 		global = {
 			[realm] = {
 				[name] = {
-					exceptionList = {}
+					exceptionList = {},
+					forceSellList = {}
 				}
 			}
 		},
@@ -109,173 +113,14 @@ function AutoProfitX2:OnInitialize()
 	--initialize eList variable
 	eList = self.db.global[realm][name].exceptionList
 
-	--register chat commands
-	local chat_options = {
-		name = "AutoProfitX2",
-		handler = AutoProfitX2,
-		type = "group",
-		args = {
-			["options"] = {
-				name = L["options"],
-				type = "execute",
-				desc = L["Show options panel."],
-				func = function() InterfaceOptionsFrame_OpenToCategory(self.blizOptionsRef) end,
-			},
-			["add"] = {
-				name = L["add"],
-				type = "input",
-				desc = L["Add items to global ignore list."],
-				usage = L["<item link>[<item link>...]"],
-				get = false,
-				set = "AddGlobal"
-			},
-			["rem"] = {
-				name = L["rem"],
-				type = "input",
-				desc = L["Remove items from global ignore list."],
-				usage = L["<item link>[<item link>...]"],
-				get = false,
-				set = "RemGlobal"
-			},
-			["me"] = {
-				name = L["me"],
-				type = "input",
-				desc = L["Add or remove an item from your exception list."],
-				usage = L["<item link>[<item link>...]"],
-				get = false,
-				set = "AddRemLocal"
-			},
-			["list"] = {
-				name = L["list"],
-				type = "execute",
-				desc = L["List your exceptions."],
-				func = "ListExceptions"
-			}
-		}
-	}
-	AceConfig:RegisterOptionsTable("AutoProfitX2", chat_options, { "AutoProfitX2", "apx" });
+	--register chat commands: /apx opens options directly
+	self:RegisterChatCommand("apx", function() APX_Options_Toggle() end)
+	self:RegisterChatCommand("AutoProfitX2", function() APX_Options_Toggle() end)
 
-	--set up options panel
-	local gui_options = {
-		type = "group",
-		args = {
-			addon = {
-				type = "group",
-				name = L["Addon Options"],
-				order = 10,
-				args = {
-					autoSell = {
-						name = L["Auto Sell"],
-						type = "toggle",
-						desc = L["Automatically sell junk items when opening vendor window."],
-						get = function() return charSettings.autoSell end,
-						set = "ToggleAutoSell",
-						handler = self,
-						order = 10
-					},
-					silent = {
-						name = L["Sales Reports"],
-						type = "toggle",
-						desc = L["Print items being sold in chat frame."],
-						get = function() return not charSettings.silent end,
-						set = function(info, v) charSettings.silent = not v end,
-						order = 20
-					},
-					profit = {
-						name = L["Show Profit"],
-						type = "toggle",
-						desc = L["Print total profit after sale."],
-						get = function() return charSettings.showTotal end,
-						set = function(info, v) charSettings.showTotal = v end,
-						order = 25
-					},
-					sellSoulbound = {
-						name = L["Sell Soulbound"],
-						type = "toggle",
-						desc = L["Sell unusable soulbound items."],
-						get = function() return charSettings.checkSoulbound end,
-						set = function(info, v) charSettings.checkSoulbound = v end,
-						order = 30
-					},
-					--[[sellInfArmor = {
-						name = L["Sell non-optimal Armor"],
-						type = "toggle",
-						desc = L["Sell non-optimal soulbound armor."],
-- Need to check if sellSoulbound is active!!
-- Set the sellSoulbound option at the start of a line, and align selInfArmor to its right on the same line
-						get = function () return charSettings.checkInfArmor end,
-						set = function (info,v) charSettings.checkInfArmor = v end,
-						order = 30
-					},]]
-					--[[buttonSpin = {
-						name = L["Button Animation Options"],
-						type = "text",
-						desc = L["Set up when you want the treasure pile in the button to spin."],
-						validate = {
-							["0"] = L["Never spin"],
-							["1"] = L["Mouse-over and profit"],
-							["2"] = L["Mouse-over"],
-							["3"] = L["Profits"]
-						},
-						validateDesc = {
-							["0"] = L["Never spin"],
-							["1"] = L["Spin when you mouse-over the button and there is junk to vendor."],
-							["2"] = L["Spin every time you mouse over."],
-							["3"] = L["Spin every time there is junk to sell."]
-						},
-						get = function () return charSettings.buttonSpin end,
-						set = function (v) charSettings.buttonSpin = v end,
-						order = 45
-					},]]
-					dockButton = {
-						name = L["Reset Button Pos"],
-						type = "execute",
-						desc = L["Reset APX button position on the vendor screen to the top right corner."],
-						func = function() self:SetButtonPosition(buttonX, buttonY) end,
-						order = 50
-					}
-				}
-			},
-			exceptionList = {
-				type = "group",
-				name = L["Exception List"],
-				args = {
-					import = {
-						name = L["Import Exception List"],
-						type = "select",
-						style = "dropdown",
-						desc = L["Choose character to import exceptions from. Your exceptions will be deleted."],
-						values = "GetCharList",
-						get = false,
-						set = "ImportExceptionList",
-						handler = self,
-						width = "full",
-						order = 10
-					},
-					purge = {
-						name = L["Clear Exceptions"],
-						type = "execute",
-						desc = L["Remove all items from exception list."],
-						func = "PurgeExceptionList",
-						handler = self,
-						order = 20
-					},
-					update = {
-						name = L["Update Exception List"],
-						type = "execute",
-						desc = L["Update exception list from pre 2.0 AutoProfitX2 version."],
-						func = "UpdateExceptionLists",
-						handler = self,
-						order = 20
-					}
-				}
-			}
-		}
-	}
-	AceConfig:RegisterOptionsTable("AutoProfitX2 Configuration", gui_options.args.addon);
-	AceConfig:RegisterOptionsTable("AutoProfitX2 Exceptions", gui_options.args.exceptionList);
-	self.blizOptionsRef = AceConfigDialog:AddToBlizOptions("AutoProfitX2 Configuration", "AutoProfitX2");
-	--AceConfigDialog:AddToBlizOptions("AutoProfitX2 Exceptions","Exceptions List","AutoProfitX2 Configuration");
+	-- Initialize force sell list if missing
+	if not self.db.global[realm][name].forceSellList then
+		self.db.global[realm][name].forceSellList = {}
+	end
 
 	if level < 40 then
 		infArmorProf = AutoProfitX2_InfArmorProficiencies_Sub40[apx_CLASS] or {}
@@ -435,14 +280,18 @@ end
 --MERCHANT_SHOW event handler
 function AutoProfitX2:OnMerchantShow()
 	if charSettings.autoSell then
-		local profit = self:GetProfit()
-		local hasProfit = (not issecretvalue(profit)) and (profit > 0)
-		if hasProfit then
-			self:SellJunk()
-			if charSettings.showTotal then
-				self:Print(L["Total profits: PROFIT"](coppertogold(profit)))
+		-- Small delay to ensure MerchantFrame is fully visible
+		C_Timer.After(0.1, function()
+			if not MerchantFrame:IsVisible() then return end
+			local profit = self:GetProfit()
+			local hasProfit = (not issecretvalue(profit)) and (profit > 0)
+			if hasProfit then
+				self:SellJunk()
+				if charSettings.showTotal then
+					self:Print(L["Total profits: PROFIT"](coppertogold(profit)))
+				end
 			end
-		end
+		end)
 	else
 		--register BAG_UPDATE event for updating button
 		self:RegisterEvent("BAG_UPDATE", "OnBagUpdate")
@@ -469,35 +318,54 @@ function AutoProfitX2:GetID(link)
 	return strmatch(link, "item:(%d+)")
 end
 
---sells junk items
+--sells junk items (with batch processing to avoid server throttle)
 function AutoProfitX2:SellJunk()
-	local link
+	if not (MerchantFrame:IsVisible() and MerchantFrame.selectedTab == 1) then return end
 
-	if (MerchantFrame:IsVisible() and MerchantFrame.selectedTab == 1) then
-		for bag = 0, 4 do
-			for slot = 1, C_Container.GetContainerNumSlots(bag) do
-				--if slot not empty and item is junk
-				link = C_Container.GetContainerItemLink(bag, slot)
-				if link then
-					local junk, itemSellPrice = self:IsJunk(link, bag, slot)
-					if junk then
-						if itemSellPrice == 0 then
-							if not charSettings.silent then
-								self:Print(L["Item LINK is junk, but cannot be sold."](link))
-							end
-						else
-							--sell item
-							C_Container.UseContainerItem(bag, slot)
-							--if sale reporting is turned on (not silent), display sale message
-							if not charSettings.silent then
-								self:Print(L["Sold LINK."](link))
-							end
+	-- Build sell queue
+	wipe(sellQueue)
+	for bag = 0, 4 do
+		for slot = 1, C_Container.GetContainerNumSlots(bag) do
+			local link = C_Container.GetContainerItemLink(bag, slot)
+			if link then
+				local junk, itemSellPrice = self:IsJunk(link, bag, slot)
+				if junk then
+					if itemSellPrice == 0 then
+						if not charSettings.silent then
+							self:Print(L["Item LINK is junk, but cannot be sold."](link))
 						end
+					else
+						tinsert(sellQueue, { bag = bag, slot = slot, link = link })
 					end
 				end
 			end
 		end
 	end
+
+	-- Process in batches
+	local totalItems = #sellQueue
+	if totalItems == 0 then return end
+
+	local batchStart = 1
+	local function ProcessBatch()
+		if not MerchantFrame:IsVisible() then return end
+		local batchEnd = math.min(batchStart + sellBatchSize - 1, totalItems)
+		for i = batchStart, batchEnd do
+			local item = sellQueue[i]
+			if item then
+				C_Container.UseContainerItem(item.bag, item.slot)
+				if not charSettings.silent then
+					self:Print(L["Sold LINK."](item.link))
+				end
+			end
+		end
+		batchStart = batchEnd + 1
+		if batchStart <= totalItems then
+			C_Timer.After(sellBatchDelay, ProcessBatch)
+		end
+	end
+
+	ProcessBatch()
 end
 
 --returns true if item is junk
@@ -512,9 +380,16 @@ function AutoProfitX2:IsJunk(link, bag, slot)
 	end
 	local id = self:GetID(link)
 
+	-- Force sell list: always sell regardless of quality
+	local forceSellList = self.db.global[realm] and self.db.global[realm][name] and
+			self.db.global[realm][name].forceSellList or {}
+	if forceSellList[id] then
+		return true, itemSellPrice
+	end
+
 	if eList[id] then
-		-- since it's in the exception list, return true if not poor
-		return quality ~= 0, itemSellPrice
+		-- in the exception/ignore list: never sell
+		return false, itemSellPrice
 	end
 
 	-- Not in the list, return true if it's poor quality
