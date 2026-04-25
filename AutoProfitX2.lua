@@ -122,6 +122,9 @@ function AutoProfitX2:OnInitialize()
 		self.db.global[realm][name].forceSellList = {}
 	end
 
+	-- Minimap button
+	self:CreateMinimapButton()
+
 	if level < 40 then
 		infArmorProf = AutoProfitX2_InfArmorProficiencies_Sub40[apx_CLASS] or {}
 	else
@@ -468,6 +471,152 @@ function AutoProfitX2:GetProfit()
 		end
 	end
 	return totalProfit
+end
+
+--[[
+
+Minimap button (supports round, square, and hybrid minimap shapes)
+
+]]
+
+do
+	-- Minimap shape table (from LibDBIcon-1.0) - true = round in that quadrant
+	local minimapShapes = {
+		["ROUND"]                 = { true, true, true, true },
+		["SQUARE"]                = { false, false, false, false },
+		["CORNER-TOPLEFT"]        = { false, false, false, true },
+		["CORNER-TOPRIGHT"]       = { false, false, true, false },
+		["CORNER-BOTTOMLEFT"]     = { false, true, false, false },
+		["CORNER-BOTTOMRIGHT"]    = { true, false, false, false },
+		["SIDE-LEFT"]             = { false, true, false, true },
+		["SIDE-RIGHT"]            = { true, false, true, false },
+		["SIDE-TOP"]              = { false, false, true, true },
+		["SIDE-BOTTOM"]           = { true, true, false, false },
+		["TRICORNER-TOPLEFT"]     = { false, true, true, true },
+		["TRICORNER-TOPRIGHT"]    = { true, false, true, true },
+		["TRICORNER-BOTTOMLEFT"]  = { true, true, false, true },
+		["TRICORNER-BOTTOMRIGHT"] = { true, true, true, false },
+	}
+
+	local rad, cos, sin, sqrt, max, min = math.rad, math.cos, math.sin, math.sqrt, math.max, math.min
+	local deg, atan2 = math.deg, math.atan2
+	local BUTTON_RADIUS = 5
+
+	local function UpdateButtonPosition(button, position)
+		local angle = rad(position or 225)
+		local x, y, q = cos(angle), sin(angle), 1
+		if x < 0 then q = q + 1 end
+		if y > 0 then q = q + 2 end
+		local minimapShape = GetMinimapShape and GetMinimapShape() or "ROUND"
+		local quadTable = minimapShapes[minimapShape] or minimapShapes["ROUND"]
+		local w = (Minimap:GetWidth() / 2) + BUTTON_RADIUS
+		local h = (Minimap:GetHeight() / 2) + BUTTON_RADIUS
+		if quadTable[q] then
+			-- Round quadrant: position on circle
+			x, y = x * w, y * h
+		else
+			-- Square quadrant: clamp to rectangle edge
+			local diagW = sqrt(2 * (w) ^ 2) - 10
+			local diagH = sqrt(2 * (h) ^ 2) - 10
+			x = max(-w, min(x * diagW, w))
+			y = max(-h, min(y * diagH, h))
+		end
+		button:ClearAllPoints()
+		button:SetPoint("CENTER", Minimap, "CENTER", x, y)
+	end
+
+	function AutoProfitX2:CreateMinimapButton()
+		-- Saved position (angle around minimap)
+		if not self.db.char.minimapPos then
+			self.db.char.minimapPos = 220
+		end
+
+		local btn = CreateFrame("Button", "AutoProfitX2_MinimapButton", Minimap)
+		btn:SetSize(33, 33)
+		btn:SetFrameStrata("MEDIUM")
+		btn:SetFrameLevel(8)
+		btn:SetClampedToScreen(true)
+		btn:SetMovable(true)
+		btn:RegisterForDrag("RightButton")
+		btn:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
+
+		-- Background circle
+		local overlay = btn:CreateTexture(nil, "OVERLAY")
+		overlay:SetSize(53, 53)
+		overlay:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+		overlay:SetPoint("TOPLEFT")
+
+		local bg = btn:CreateTexture(nil, "BACKGROUND")
+		bg:SetSize(25, 25)
+		bg:SetTexture("Interface\\Minimap\\UI-Minimap-Background")
+		bg:SetPoint("TOPLEFT", 2, -4)
+
+		-- Coin icon (same as the sell button)
+		local icon = btn:CreateTexture(nil, "ARTWORK")
+		icon:SetSize(21, 21)
+		icon:SetTexture("Interface\\Buttons\\UI-GroupLoot-Coin-Up")
+		icon:SetPoint("CENTER", 0, -1)
+
+		-- Drag handlers
+		local isDragging = false
+		btn:SetScript("OnDragStart", function(self)
+			isDragging = true
+			self:LockHighlight()
+			GameTooltip:Hide()
+			self:SetScript("OnUpdate", function(self)
+				local mx, my = Minimap:GetCenter()
+				local px, py = GetCursorPosition()
+				local scale = Minimap:GetEffectiveScale()
+				px, py = px / scale, py / scale
+				local pos = deg(atan2(py - my, px - mx)) % 360
+				AutoProfitX2.db.char.minimapPos = pos
+				UpdateButtonPosition(self, pos)
+			end)
+		end)
+		btn:SetScript("OnDragStop", function(self)
+			isDragging = false
+			self:SetScript("OnUpdate", nil)
+			self:UnlockHighlight()
+		end)
+
+		-- Click to open options
+		btn:SetScript("OnClick", function()
+			APX_Options_Toggle()
+		end)
+
+		-- Tooltip
+		btn:SetScript("OnEnter", function(self)
+			if isDragging then return end
+			GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+			GameTooltip:SetText("AutoProfitX2")
+			GameTooltip:AddLine("Click to open options", 1, 1, 1)
+			GameTooltip:AddLine("Right-click drag to move", 0.7, 0.7, 0.7)
+			GameTooltip:Show()
+		end)
+		btn:SetScript("OnLeave", function()
+			GameTooltip:Hide()
+		end)
+
+		UpdateButtonPosition(btn, self.db.char.minimapPos)
+
+		-- Re-position after UI is fully loaded (custom minimap addons may resize late)
+		local reposFrame = CreateFrame("Frame")
+		reposFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+		reposFrame:SetScript("OnEvent", function(f)
+			f:UnregisterAllEvents()
+			C_Timer.After(0.5, function()
+				UpdateButtonPosition(btn, AutoProfitX2.db.char.minimapPos)
+			end)
+		end)
+
+		-- Apply hide setting
+		if self.db.char.hideMinimapButton then
+			btn:Hide()
+		end
+
+		-- Store reference for toggling
+		self.minimapButton = btn
+	end
 end
 
 --[[

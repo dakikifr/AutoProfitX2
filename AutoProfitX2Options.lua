@@ -400,6 +400,28 @@ local function CreateGeneralPanel(parent)
 	end)
 	yPos = yPos - 34
 
+	yPos = yPos - SECTION_SPACING
+	local _, newY3 = CreateSectionHeader(scrollChild, "Minimap", yPos)
+	yPos = newY3 - 4
+
+	CreateCheckbox(scrollChild, "Hide Minimap Icon", 16, yPos,
+		function()
+			local cs = GetCharSettings(); return cs and cs.hideMinimapButton
+		end,
+		function(v)
+			local cs = GetCharSettings()
+			if cs then cs.hideMinimapButton = v end
+			if AutoProfitX2 and AutoProfitX2.minimapButton then
+				if v then
+					AutoProfitX2.minimapButton:Hide()
+				else
+					AutoProfitX2.minimapButton:Show()
+				end
+			end
+		end
+	)
+	yPos = yPos - CHECKBOX_SPACING
+
 	scrollChild:SetHeight(math.abs(yPos) + 20)
 
 	categoryPanels[1] = panel
