@@ -32,8 +32,8 @@ local classMatch = strformat(ITEM_CLASSES_ALLOWED, "([%w, ]*)")
 
 -- Batch selling state
 local sellQueue = {}
-local sellBatchSize = 10
-local sellBatchDelay = 0.25 -- seconds between batches
+local sellBatchSize = 2
+local sellBatchDelay = 0.025 -- seconds between batches
 
 --[[
 
@@ -286,10 +286,11 @@ function AutoProfitX2:OnMerchantShow()
 			local profit = self:GetProfit()
 			local hasProfit = (not issecretvalue(profit)) and (profit > 0)
 			if hasProfit then
-				self:SellJunk()
-				if charSettings.showTotal then
-					self:Print(L["Total profits: PROFIT"](coppertogold(profit)))
-				end
+				self:SellJunk(function()
+					if charSettings.showTotal then
+						self:Print(L["Total profits: PROFIT"](coppertogold(profit)))
+					end
+				end)
 			end
 		end)
 	else
@@ -319,12 +320,13 @@ function AutoProfitX2:GetID(link)
 end
 
 --sells junk items (with batch processing to avoid server throttle)
-function AutoProfitX2:SellJunk()
+-- onComplete: optional callback fired after the last batch is processed
+function AutoProfitX2:SellJunk(onComplete)
 	if not (MerchantFrame:IsVisible() and MerchantFrame.selectedTab == 1) then return end
 
-	-- Build sell queue
+	-- Build sell queue (bags 0-4 + reagent bag 5)
 	wipe(sellQueue)
-	for bag = 0, 4 do
+	for bag = 0, 5 do
 		for slot = 1, C_Container.GetContainerNumSlots(bag) do
 			local link = C_Container.GetContainerItemLink(bag, slot)
 			if link then
@@ -362,6 +364,8 @@ function AutoProfitX2:SellJunk()
 		batchStart = batchEnd + 1
 		if batchStart <= totalItems then
 			C_Timer.After(sellBatchDelay, ProcessBatch)
+		elseif onComplete then
+			onComplete()
 		end
 	end
 
@@ -551,10 +555,11 @@ function AutoProfitX2:OnClickButton()
 	local profitIsSecret = issecretvalue(profit)
 	if (not profitIsSecret) and profit > 0 then
 		GameTooltip:Hide()
-		self:SellJunk()
-		if charSettings.showTotal then
-			self:Print(L["Total profits: PROFIT"](coppertogold(profit)))
-		end
+		self:SellJunk(function()
+			if charSettings.showTotal then
+				self:Print(L["Total profits: PROFIT"](coppertogold(profit)))
+			end
+		end)
 		if charSettings.buttonSpin ~= "2" then
 			self:ButtonStopSpin()
 		end
