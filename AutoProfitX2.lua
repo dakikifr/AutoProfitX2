@@ -32,7 +32,7 @@ local classMatch = strformat(ITEM_CLASSES_ALLOWED, "([%w, ]*)")
 
 -- Batch selling state
 local sellQueue = {}
-local sellBatchSize = 2
+local sellBatchSize = 1      -- items per batch (1 is safest to avoid server throttle, but can be increased if desired)
 local sellBatchDelay = 0.025 -- seconds between batches
 
 --[[
