@@ -30,10 +30,11 @@ local strmatch = string.match
 local linkMatch = "|c[^|]+|Hitem.-|h%[.-%]|h|r"
 local classMatch = strformat(ITEM_CLASSES_ALLOWED, "([%w, ]*)")
 
--- Batch selling state
+-- Event-driven selling state
 local sellQueue = {}
-local sellBatchSize = 1      -- items per batch (1 is safest to avoid server throttle, but can be increased if desired)
-local sellBatchDelay = 0.025 -- seconds between batches
+local sellIndex = 0
+local sellOnComplete = nil
+local isSelling = false
 
 --[[
 
@@ -58,22 +59,26 @@ local function tdeepcopy(from)
 end
 
 --returns a formatted money string
+local GOLD_ICON = "|TInterface\\MoneyFrame\\UI-GoldIcon:0|t"
+local SILVER_ICON = "|TInterface\\MoneyFrame\\UI-SilverIcon:0|t"
+local COPPER_ICON = "|TInterface\\MoneyFrame\\UI-CopperIcon:0|t"
+
 local function coppertogold(copper, showGold)
 	local strValue = ""
 	local val
 	val = math.floor(copper / COPPER_PER_GOLD)
 	copper = mod(copper, COPPER_PER_GOLD)
 	if val > 0 or showGold then
-		strValue = val .. "g "
+		strValue = val .. GOLD_ICON .. " "
 	end
 
 	val = math.floor(copper / COPPER_PER_SILVER)
 	copper = mod(copper, COPPER_PER_SILVER)
 	if val > 0 or strValue ~= "" then
-		strValue = strValue .. val .. "s "
+		strValue = strValue .. val .. SILVER_ICON .. " "
 	end
 
-	return strValue .. copper .. "c"
+	return strValue .. copper .. COPPER_ICON
 end
 
 --[[
@@ -291,7 +296,7 @@ function AutoProfitX2:OnMerchantShow()
 			if hasProfit then
 				self:SellJunk(function()
 					if charSettings.showTotal then
-						self:Print(L["Total profits: PROFIT"](coppertogold(profit)))
+						self:Print("|cFF00FF00" .. L["Total profits: PROFIT"]("|r" .. coppertogold(profit)))
 					end
 				end)
 			end
@@ -307,6 +312,7 @@ end
 function AutoProfitX2:OnMerchantClosed()
 	self:UnregisterEvent("MERCHANT_CLOSED")
 	self:UnregisterEvent("BAG_UPDATE")
+	self:StopSelling()
 end
 
 --BAG_UPDATE event handler
@@ -322,8 +328,8 @@ function AutoProfitX2:GetID(link)
 	return strmatch(link, "item:(%d+)")
 end
 
---sells junk items (with batch processing to avoid server throttle)
--- onComplete: optional callback fired after the last batch is processed
+--sells junk items (event-driven: waits for ITEM_LOCK_CHANGED between each sell)
+-- onComplete: optional callback fired after the last item is sold
 function AutoProfitX2:SellJunk(onComplete)
 	if not (MerchantFrame:IsVisible() and MerchantFrame.selectedTab == 1) then return end
 
@@ -347,32 +353,54 @@ function AutoProfitX2:SellJunk(onComplete)
 		end
 	end
 
-	-- Process in batches
-	local totalItems = #sellQueue
-	if totalItems == 0 then return end
+	if #sellQueue == 0 then return end
 
-	local batchStart = 1
-	local function ProcessBatch()
-		if not MerchantFrame:IsVisible() then return end
-		local batchEnd = math.min(batchStart + sellBatchSize - 1, totalItems)
-		for i = batchStart, batchEnd do
-			local item = sellQueue[i]
-			if item then
-				C_Container.UseContainerItem(item.bag, item.slot)
-				if not charSettings.silent then
-					self:Print(L["Sold LINK."](item.link))
-				end
-			end
-		end
-		batchStart = batchEnd + 1
-		if batchStart <= totalItems then
-			C_Timer.After(sellBatchDelay, ProcessBatch)
-		elseif onComplete then
-			onComplete()
-		end
+	sellIndex = 0
+	sellOnComplete = onComplete
+	isSelling = true
+	self:RegisterEvent("ITEM_LOCK_CHANGED", "OnSellItemLockChanged")
+	self:SellNextItem()
+end
+
+--sells the next item in the queue
+function AutoProfitX2:SellNextItem()
+	if not MerchantFrame:IsVisible() then
+		self:StopSelling()
+		return
 	end
 
-	ProcessBatch()
+	sellIndex = sellIndex + 1
+	if sellIndex > #sellQueue then
+		local cb = sellOnComplete
+		self:StopSelling()
+		if cb then cb() end
+		return
+	end
+
+	local item = sellQueue[sellIndex]
+	if not charSettings.silent then
+		self:Print(L["Sold LINK."](item.link))
+	end
+	C_Container.UseContainerItem(item.bag, item.slot)
+end
+
+--ITEM_LOCK_CHANGED handler: fires as soon as the server locks the item being sold
+function AutoProfitX2:OnSellItemLockChanged(_, bag, slot)
+	if not isSelling then return end
+	-- Only react to the item we just sold
+	local current = sellQueue[sellIndex]
+	if current and bag == current.bag and slot == current.slot then
+		self:SellNextItem()
+	end
+end
+
+--stops the selling process and cleans up
+function AutoProfitX2:StopSelling()
+	isSelling = false
+	sellOnComplete = nil
+	if self.UnregisterEvent then
+		pcall(function() self:UnregisterEvent("ITEM_LOCK_CHANGED") end)
+	end
 end
 
 --returns true if item is junk
@@ -706,7 +734,7 @@ function AutoProfitX2:OnClickButton()
 		GameTooltip:Hide()
 		self:SellJunk(function()
 			if charSettings.showTotal then
-				self:Print(L["Total profits: PROFIT"](coppertogold(profit)))
+				self:Print("|cFF00FF00" .. L["Total profits: PROFIT"]("|r" .. coppertogold(profit)))
 			end
 		end)
 		if charSettings.buttonSpin ~= "2" then
