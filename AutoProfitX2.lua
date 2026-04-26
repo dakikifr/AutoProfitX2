@@ -31,10 +31,16 @@ local linkMatch = "|c[^|]+|Hitem.-|h%[.-%]|h|r"
 local classMatch = strformat(ITEM_CLASSES_ALLOWED, "([%w, ]*)")
 
 -- Event-driven selling state
-local sellQueue = {}
-local sellIndex = 0
+local sellMasterList = {} -- persistent list: {link, id, bag, slot, sold, totalPrice}
+local sellQueue = {}      -- indices into masterList for current pass
+local sellQueueIndex = 0
 local sellOnComplete = nil
 local isSelling = false
+local sellRetryCount = 0
+local sellSafetyTimer = nil
+local MAX_SELL_RETRIES = 5
+local SELL_TIMEOUT = 0.2 -- seconds to wait for ITEM_LOCK_CHANGED before skipping
+local SELL_DEBUG = false -- set to true to enable debug prints
 
 --[[
 
@@ -294,9 +300,9 @@ function AutoProfitX2:OnMerchantShow()
 			local profit = self:GetProfit()
 			local hasProfit = (not issecretvalue(profit)) and (profit > 0)
 			if hasProfit then
-				self:SellJunk(function()
-					if charSettings.showTotal then
-						self:Print("|cFF00FF00" .. L["Total profits: PROFIT"]("|r" .. coppertogold(profit)))
+				self:SellJunk(function(actualProfit)
+					if charSettings.showTotal and actualProfit and actualProfit > 0 then
+						self:Print("|cFF00FF00" .. L["Total profits: PROFIT"]("|r" .. coppertogold(actualProfit)))
 					end
 				end)
 			end
@@ -328,13 +334,13 @@ function AutoProfitX2:GetID(link)
 	return strmatch(link, "item:(%d+)")
 end
 
---sells junk items (event-driven: waits for ITEM_LOCK_CHANGED between each sell)
--- onComplete: optional callback fired after the last item is sold
+--sells junk items with retry verification
+-- onComplete: optional callback fired after all items are verified sold (or max retries reached)
 function AutoProfitX2:SellJunk(onComplete)
 	if not (MerchantFrame:IsVisible() and MerchantFrame.selectedTab == 1) then return end
 
-	-- Build sell queue (bags 0-4 + reagent bag 5)
-	wipe(sellQueue)
+	-- Build master list: scan all bags for junk
+	wipe(sellMasterList)
 	for bag = 0, 5 do
 		for slot = 1, C_Container.GetContainerNumSlots(bag) do
 			local link = C_Container.GetContainerItemLink(bag, slot)
@@ -346,60 +352,246 @@ function AutoProfitX2:SellJunk(onComplete)
 							self:Print(L["Item LINK is junk, but cannot be sold."](link))
 						end
 					else
-						tinsert(sellQueue, { bag = bag, slot = slot, link = link })
+						local itemInfo = C_Container.GetContainerItemInfo(bag, slot)
+						local count = itemInfo and itemInfo.stackCount or 1
+						if issecretvalue(count) then count = 1 end
+						tinsert(sellMasterList,
+							{ link = link, bag = bag, slot = slot, sold = false, totalPrice = itemSellPrice * count })
 					end
 				end
 			end
 		end
 	end
 
-	if #sellQueue == 0 then return end
+	if #sellMasterList == 0 then return end
 
-	sellIndex = 0
+	sellRetryCount = 0
+	self:SellPass(onComplete)
+end
+
+--runs one sell pass on unsold items from the master list
+function AutoProfitX2:SellPass(onComplete)
+	if SELL_DEBUG then self:Print("|cFFAAAAFF[Debug] SellPass: retry #" .. sellRetryCount .. "|r") end
+	if not (MerchantFrame:IsVisible() and MerchantFrame.selectedTab == 1) then
+		self:StopSelling()
+		if onComplete then onComplete() end
+		return
+	end
+
+	-- Build queue of unsold item indices
+	wipe(sellQueue)
+	for i, entry in ipairs(sellMasterList) do
+		if not entry.sold then
+			tinsert(sellQueue, i)
+		end
+	end
+
+	if #sellQueue == 0 then
+		-- All sold
+		self:FinishSelling(onComplete)
+		return
+	end
+
+	sellQueueIndex = 0
 	sellOnComplete = onComplete
 	isSelling = true
 	self:RegisterEvent("ITEM_LOCK_CHANGED", "OnSellItemLockChanged")
 	self:SellNextItem()
 end
 
---sells the next item in the queue
+--sells the next item in the current pass queue
 function AutoProfitX2:SellNextItem()
+	if sellSafetyTimer then
+		sellSafetyTimer:Cancel()
+		sellSafetyTimer = nil
+	end
+
 	if not MerchantFrame:IsVisible() then
 		self:StopSelling()
 		return
 	end
 
-	sellIndex = sellIndex + 1
-	if sellIndex > #sellQueue then
+	sellQueueIndex = sellQueueIndex + 1
+	if sellQueueIndex > #sellQueue then
+		-- Current pass finished: mark sold items and verify
 		local cb = sellOnComplete
 		self:StopSelling()
-		if cb then cb() end
+		self:VerifyAndRetry(cb)
 		return
 	end
 
-	local item = sellQueue[sellIndex]
-	if not charSettings.silent then
-		self:Print(L["Sold LINK."](item.link))
-	end
-	C_Container.UseContainerItem(item.bag, item.slot)
+	local entry = sellMasterList[sellQueue[sellQueueIndex]]
+	C_Container.UseContainerItem(entry.bag, entry.slot)
+
+	-- Safety timer: skip to next if ITEM_LOCK_CHANGED doesn't fire
+	local expectedQueueIndex = sellQueueIndex
+	sellSafetyTimer = C_Timer.NewTimer(SELL_TIMEOUT, function()
+		sellSafetyTimer = nil
+		if isSelling and sellQueueIndex == expectedQueueIndex then
+			self:SellNextItem()
+		end
+	end)
 end
 
---ITEM_LOCK_CHANGED handler: fires as soon as the server locks the item being sold
+--ITEM_LOCK_CHANGED handler
 function AutoProfitX2:OnSellItemLockChanged(_, bag, slot)
 	if not isSelling then return end
-	-- Only react to the item we just sold
-	local current = sellQueue[sellIndex]
-	if current and bag == current.bag and slot == current.slot then
+	local masterIdx = sellQueue[sellQueueIndex]
+	local entry = sellMasterList[masterIdx]
+	if entry and bag == entry.bag and slot == entry.slot then
+		if SELL_DEBUG then self:Print("|cFFAAAAFF[Debug] ITEM_LOCK_CHANGED: " .. entry.link .. "|r") end
+		if sellSafetyTimer then
+			sellSafetyTimer:Cancel()
+			sellSafetyTimer = nil
+		end
 		self:SellNextItem()
 	end
 end
 
---stops the selling process and cleans up
+--after a pass, wait for BAG_UPDATE_DELAYED then re-scan bags to find unsold items
+function AutoProfitX2:VerifyAndRetry(onComplete)
+	if SELL_DEBUG then
+		local soldCount, unsoldCount = 0, 0
+		for _, e in ipairs(sellMasterList) do if e.sold then soldCount = soldCount + 1 else unsoldCount = unsoldCount + 1 end end
+		self:Print("|cFFAAAAFF[Debug] VerifyAndRetry: sold=" ..
+			soldCount .. " unsold=" .. unsoldCount .. " retryCount=" .. sellRetryCount .. "|r")
+	end
+	if not (MerchantFrame:IsVisible() and MerchantFrame.selectedTab == 1) then
+		self:FinishSelling(onComplete)
+		return
+	end
+
+	-- Wait for BAG_UPDATE_DELAYED so bag contents are up-to-date before re-scanning
+	-- Safety timer in case BAG_UPDATE_DELAYED doesn't fire (e.g., all sells failed)
+	sellOnComplete = onComplete
+	self:RegisterEvent("BAG_UPDATE_DELAYED", "OnVerifyBagUpdateDelayed")
+	sellSafetyTimer = C_Timer.NewTimer(1.0, function()
+		sellSafetyTimer = nil
+		if SELL_DEBUG then AutoProfitX2:Print("|cFFAAAAFF[Debug] VerifyAndRetry safety timer fired|r") end
+		AutoProfitX2:OnVerifyBagUpdateDelayed()
+	end)
+end
+
+--BAG_UPDATE_DELAYED handler for verify step
+function AutoProfitX2:OnVerifyBagUpdateDelayed()
+	pcall(function() self:UnregisterEvent("BAG_UPDATE_DELAYED") end)
+	if sellSafetyTimer then
+		sellSafetyTimer:Cancel()
+		sellSafetyTimer = nil
+	end
+	if SELL_DEBUG then self:Print("|cFFAAAAFF[Debug] OnVerifyBagUpdateDelayed fired|r") end
+	local cb = sellOnComplete
+	if not (MerchantFrame:IsVisible() and MerchantFrame.selectedTab == 1) then
+		self:FinishSelling(cb)
+		return
+	end
+	self:RescanAndRetry(cb)
+end
+
+--re-scans bags after BAG_UPDATE_DELAYED and retries selling unsold items
+function AutoProfitX2:RescanAndRetry(onComplete)
+	-- Clear bag/slot for unsold entries
+	for _, entry in ipairs(sellMasterList) do
+		if not entry.sold then
+			entry.bag = nil
+			entry.slot = nil
+		end
+	end
+
+	-- Build lookup of unsold entries by item ID
+	local unsoldByID = {}
+	for i, entry in ipairs(sellMasterList) do
+		if not entry.sold then
+			local id = self:GetID(entry.link)
+			if id then
+				unsoldByID[id] = unsoldByID[id] or {}
+				tinsert(unsoldByID[id], i)
+			end
+		end
+	end
+
+	-- Scan bags to relocate unsold items
+	for bag = 0, 5 do
+		for slot = 1, C_Container.GetContainerNumSlots(bag) do
+			local link = C_Container.GetContainerItemLink(bag, slot)
+			if link then
+				local id = self:GetID(link)
+				if id and unsoldByID[id] and #unsoldByID[id] > 0 then
+					local masterIdx = tremove(unsoldByID[id], 1)
+					sellMasterList[masterIdx].bag = bag
+					sellMasterList[masterIdx].slot = slot
+				end
+			end
+		end
+	end
+
+	-- Items not found in bags anymore were actually sold
+	for _, entry in ipairs(sellMasterList) do
+		if not entry.sold and not entry.bag then
+			entry.sold = true
+		end
+	end
+
+	-- Check if any unsold items still have a bag slot (need retry)
+	local hasUnsold = false
+	local unsoldCount = 0
+	for _, entry in ipairs(sellMasterList) do
+		if not entry.sold then
+			hasUnsold = true
+			unsoldCount = unsoldCount + 1
+		end
+	end
+
+	if SELL_DEBUG then self:Print("|cFFAAAAFF[Debug] RescanAndRetry: " .. unsoldCount .. " items still unsold|r") end
+
+	if not hasUnsold then
+		self:FinishSelling(onComplete)
+		return
+	end
+
+	-- Check retry limit before re-selling
+	sellRetryCount = sellRetryCount + 1
+	if sellRetryCount >= MAX_SELL_RETRIES then
+		if SELL_DEBUG then self:Print("|cFFAAAAFF[Debug] Max retries reached, finishing|r") end
+		self:FinishSelling(onComplete)
+		return
+	end
+
+	-- Retry selling unsold items
+	self:SellPass(onComplete)
+end
+
+--prints the sell summary and calls onComplete
+function AutoProfitX2:FinishSelling(onComplete)
+	local actualProfit = 0
+	if not charSettings.silent then
+		for _, entry in ipairs(sellMasterList) do
+			if entry.sold then
+				self:Print(L["Sold LINK."](entry.link))
+			end
+		end
+	end
+	for _, entry in ipairs(sellMasterList) do
+		if entry.sold then
+			actualProfit = actualProfit + (entry.totalPrice or 0)
+		end
+	end
+	wipe(sellMasterList)
+	if onComplete then onComplete(actualProfit) end
+end
+
+--stops the current selling pass and cleans up event/timer state
 function AutoProfitX2:StopSelling()
 	isSelling = false
 	sellOnComplete = nil
+	sellQueueIndex = 0
+	if sellSafetyTimer then
+		sellSafetyTimer:Cancel()
+		sellSafetyTimer = nil
+	end
 	if self.UnregisterEvent then
 		pcall(function() self:UnregisterEvent("ITEM_LOCK_CHANGED") end)
+		pcall(function() self:UnregisterEvent("BAG_UPDATE_DELAYED") end)
 	end
 end
 
@@ -732,9 +924,9 @@ function AutoProfitX2:OnClickButton()
 	local profitIsSecret = issecretvalue(profit)
 	if (not profitIsSecret) and profit > 0 then
 		GameTooltip:Hide()
-		self:SellJunk(function()
-			if charSettings.showTotal then
-				self:Print("|cFF00FF00" .. L["Total profits: PROFIT"]("|r" .. coppertogold(profit)))
+		self:SellJunk(function(actualProfit)
+			if charSettings.showTotal and actualProfit and actualProfit > 0 then
+				self:Print("|cFF00FF00" .. L["Total profits: PROFIT"]("|r" .. coppertogold(actualProfit)))
 			end
 		end)
 		if charSettings.buttonSpin ~= "2" then
