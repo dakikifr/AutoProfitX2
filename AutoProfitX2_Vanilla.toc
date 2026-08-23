@@ -22,4 +22,5 @@ embeds.xml
 locales\locales.xml
 
 proficiencies.lua
+itemMigrations.lua
 AutoProfitX2.xml

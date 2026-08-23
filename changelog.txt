@@ -1,3 +1,10 @@
+v12.8
+- updated retail toc for v12.1
+- Fix saved ignore / force sell entries pointing at items patch 12.1 removed: the
+  62 per-color housing dyes were replaced by 9 per-family Housing Dyes, so the old
+  IDs no longer resolved and the options panel stayed on "Item #<id> (loading...)"
+- Saved item IDs are now remapped at load time for every character on every realm
+
 v12.3
 - Fix item link parsing for WoW 12.0+ (new |cnIQx color format)
 - Add batch selling: items are sold in groups of 10 with 250ms delay to avoid server throttle

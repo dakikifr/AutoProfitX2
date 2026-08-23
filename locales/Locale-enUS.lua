@@ -54,6 +54,7 @@ if L then
   L["Deleted all exceptions."] = true
   L["Exception list imported from NAME on REALM."] = function(name,realm) return "Exception list imported from "..name.." on "..realm.."." end
   L["Exception list could not be found for NAME on REALM."] = function(name,realm) return "Exception list could not be found for "..name.." on "..realm.."." end
+  L["Converted COUNT saved item(s) to their new item ID."] = function(count) return "Converted "..count.." saved item(s) to their new item ID." end
   L["Sold LINK."] = function(link) return "Sold "..link.."." end
   L["Item LINK is junk, but cannot be sold."] = function(link) return "Item "..link.." is junk, but cannot be sold." end
 

@@ -5,6 +5,7 @@ local name = UnitName("player")
 local realm = GetRealmName()
 local level = UnitLevel("player")
 local totalProfit = 0
+local migratedItemCount = 0
 -- WoW 12.0+ secret value safety
 local issecretvalue = issecretvalue or function() return false end
 --make proficiency table local (defined in proficiencies.lua)
@@ -133,6 +134,12 @@ function AutoProfitX2:OnInitialize()
 		self.db.global[realm][name].forceSellList = {}
 	end
 
+	-- Convert saved item IDs Blizzard retired in a patch (see itemMigrations.lua).
+	-- Reported in OnEnable so the message is not swallowed before PLAYER_LOGIN.
+	if AutoProfitX2_MigrateItemIDs then
+		migratedItemCount = AutoProfitX2_MigrateItemIDs(self.db)
+	end
+
 	-- Minimap button
 	self:CreateMinimapButton()
 
@@ -146,6 +153,12 @@ end
 function AutoProfitX2:OnEnable()
 	--register events
 	self:RegisterEvent("MERCHANT_SHOW", "OnMerchantShow")
+
+	--tell the player about the item IDs converted at load time
+	if migratedItemCount > 0 then
+		self:Print(L["Converted COUNT saved item(s) to their new item ID."](migratedItemCount))
+		migratedItemCount = 0
+	end
 end
 
 --returns a table with all your characters that have used AutoProfitX2

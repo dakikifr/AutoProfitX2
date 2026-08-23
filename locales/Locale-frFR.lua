@@ -55,6 +55,7 @@ if L then
   L["Deleted all exceptions."] = "Toutes les exceptions ont été supprimées."
   L["Exception list imported from NAME on REALM."] = function(name,realm) return "Liste d'exceptions importée de "..name.." de "..realm.."." end
   L["Exception list could not be found for NAME on REALM."] = function(name,realm) return "Liste d'exceptions introuvable pour "..name.." de "..realm.."." end
+  L["Converted COUNT saved item(s) to their new item ID."] = function(count) return count.." objet(s) enregistré(s) converti(s) vers leur nouvel ID." end
   L["Sold LINK."] = function(link) return link.." vendu." end
   L["Item LINK is junk, but cannot be sold."] = function(link) return "Objet "..link.." est une camelote, mais le vendeur n'en veut pas." end
 
