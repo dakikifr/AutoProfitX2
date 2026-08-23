@@ -421,6 +421,10 @@ function AutoProfitX2:SellNextItem()
 	end
 
 	local entry = sellMasterList[sellQueue[sellQueueIndex]]
+	if not entry then
+		self:SellNextItem()
+		return
+	end
 	C_Container.UseContainerItem(entry.bag, entry.slot)
 
 	-- Safety timer: skip to next if ITEM_LOCK_CHANGED doesn't fire
@@ -437,7 +441,9 @@ end
 function AutoProfitX2:OnSellItemLockChanged(_, bag, slot)
 	if not isSelling then return end
 	local masterIdx = sellQueue[sellQueueIndex]
+	if not masterIdx then return end
 	local entry = sellMasterList[masterIdx]
+	if not entry then return end
 	if entry and bag == entry.bag and slot == entry.slot then
 		if SELL_DEBUG then self:Print("|cFFAAAAFF[Debug] ITEM_LOCK_CHANGED: " .. entry.link .. "|r") end
 		if sellSafetyTimer then
