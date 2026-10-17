@@ -25,6 +25,8 @@ AutoProfitX2 = LibStub("AceAddon-3.0"):NewAddon("AutoProfitX2", "AceConsole-3.0"
 local strformat = string.format
 local strgmatch = string.gmatch
 local strmatch = string.match
+-- WoW 12.1.5+: the global GetItemInfo fallback was removed, only C_Item.GetItemInfo remains
+local GetItemInfo = C_Item and C_Item.GetItemInfo or GetItemInfo
 
 --some strings commonly used in addon
 -- WoW 12.0+: item links now use |cnIQx instead of |cXXXXXXXX

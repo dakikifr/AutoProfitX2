@@ -1,3 +1,8 @@
+v12.9
+- Fix selling for WoW 12.1.5: the global GetItemInfo fallback was removed with the
+  Blizzard_Deprecated* addons, so junk detection errored and nothing was sold (auto sell,
+  sell button and options panel). Now uses C_Item.GetItemInfo
+
 v12.8
 - updated retail toc for v12.1
 - Fix saved ignore / force sell entries pointing at items patch 12.1 removed: the

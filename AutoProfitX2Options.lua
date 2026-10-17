@@ -17,6 +17,9 @@ local ICON_SIZE = 28
 local SECTION_SPACING = 12
 local CHECKBOX_SPACING = 28
 
+-- WoW 12.1.5+: the global GetItemInfo fallback was removed, only C_Item.GetItemInfo remains
+local GetItemInfo = C_Item and C_Item.GetItemInfo or GetItemInfo
+
 -------------------------------------------------------------------
 -- Local state
 -------------------------------------------------------------------
